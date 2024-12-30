@@ -4,7 +4,7 @@ dotenv.config();
 const express = require("express");
 const mongodb = require("mongodb");
 const db = require("./connection");
-const collection = db.collection("students");
+const collection = db.collection("bookstore");
 
 const MONGO_URI = process.env.MONGO_URI;
 const PORT = process.env.PORT;
@@ -23,8 +23,8 @@ app.get("/", async (req, res) => {
 });
 
 //import student middleware
-const studentRouter = require("./routes/students");
-app.use("/students", studentRouter);
+const studentRouter = require("./routes/bookstore");
+app.use("/bookstore", studentRouter);
 
 function logger(req, res, next) {
   console.log(req.method);
