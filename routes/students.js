@@ -1,82 +1,122 @@
-
 const express = require("express");
 const fs = require("fs");
 const router = express.Router();
-const mongodb = require("mongodb");
-
-const db = require("../connection");
-const collection = db.collection("students");
+const Student = require("../models/student");
+const Profile = require("../models/profile");
+const Club= require("../models/club");
 
 router.get("/", async (req, res) => {
   try {
-    const students = await collection.find().toArray();
+    const students = await Student.find().populate('profile.nsted.field grades');
     res.json(students);
   } catch (err) {
-    res.status(500).json({ message: "Unable to fetch students from the database." });
+    res
+      .status(500)
+      .json({ message: "Unable to fetch students from the database." });
   }
 });
 
-router.get("/:id", getObjectId, async (req, res) => {
+router.get("/:id", async (req, res) => {
   try {
-    const student = await collection.findOne({ _id: req.o_id });
+    const student = await Student.findById(req.params.id).populate('profile');
     if (!student) {
       res.status(404).json({ message: "Student not found." });
       return;
     }
     res.json(student);
   } catch (err) {
-    res.status(500).json({ message: "Unable to fetch the student from the database." });
+    res
+      .status(500)
+      .json({ message: "Unable to fetch the student from the database." });
   }
 });
 
-router.post("/", getObjectId, async (req, res) => {
+//route for profile
+router.post("/:id/profile",async (req,res)=>{
+  try{
+    const newProfile= new Profile(req.body);
+    const profile=await newProfile.save();
+
+    const student=await Student.findById(req.params.id);
+    student.profile=profile._id;
+    const ack =await student.save();
+    res.json({
+    
+      profile: profile,
+      ack
+  });
+} catch(err){
+    res.status(500).json({ message: err.message});
+  }
+});
+
+
+// club route
+router.post("/:id/club",async (req,res)=>{
+  try{
+    const newClub= new Club(req.body);
+    const club=await newClub.save();
+
+    const student=await Student.findById(req.params.id);
+    student.club=club._id;
+    const ack =await student.save();
+    res.json({
+ student: ack,
+      club: club,
+    
+      
+      
+  });
+} catch(err){
+    res.status(500).json({ message: err.message});
+  }
+});
+
+//route for grades section
+router.patch("/:id/grades", async (req, res) => {
   try {
-    const studentData = { ...req.body, _id: req.o_id };
-    const result = await collection.insertOne(studentData);
-    res.json({ message: "Student added successfully.", student: result });
+    const student = await Student.findById(req.params.id);
+    student.grades.push(req.body);
+    const ack = await student.save();
+    res.json({student:ack});
+  } catch {(err) => {
+      res.status(500).json({ message: err.message });
+    };
+  }
+});
+
+router.post("/", async (req, res) => {
+  try {
+    const newstudent = new Student(req.body);
+    const student = await newstudent.save();
+    res.json(student);
   } catch (err) {
-    res.status(500).json({ message: "Unable to add the student to the database." });
+    res.status(500).json({ message: err.message });
   }
 });
 
-router.patch("/:id", getObjectId, async (req, res) => {
+router.patch("/:id", async (req, res) => {
   try {
-    const updateData = req.body;
-    const result = await collection.updateOne(
-      { _id: req.o_id },
-      { $set: updateData }
-    );
-    if (result.matchedCount === 0) {
+    const student = await Student.findById(req.params.id);
+    Object.assign(student, req.body);
+    const updatedStudent = await student.save();
+    res.json(updatedStudent);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+router.delete("/:id", async (req, res) => {
+  try {
+    const student = await Student.findByIdAndDelete(req.params.id);
+    if (!student) {
       res.status(404).json({ message: "Student not found." });
       return;
     }
-    res.json({ message: "Student updated successfully." });
+    res.json({ message: "Student successfully deleted.", student });
   } catch (err) {
-    res.status(500).json({ message: "Unable to update the student in the database." });
+    res.status(500).json({ message: err.message });
   }
 });
-
-router.delete("/:id", getObjectId, async (req, res) => {
-  try {
-    const result = await collection.deleteOne({ _id: req.o_id });
-    if (result.deletedCount === 0) {
-      res.status(404).json({ message: "Student not found." });
-      return;
-    }
-    res.json({ message: "Student deleted successfully." });
-  } catch (err) {
-    res.status(500).json({ message: "Unable to delete the student from the database." });
-  }
-});
-
-// Middleware to convert `id` to MongoDB ObjectId
-function getObjectId(req, res, next) {
-  try {
-    req.o_id = new mongodb.ObjectId(req.params.id || req.body.id);
-    next();
-  } catch (err) {
-    res.status(400).json({ message: "Invalid ID format." });
-  }
-}
 
 module.exports = router;
